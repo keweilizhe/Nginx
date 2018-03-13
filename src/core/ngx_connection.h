@@ -12,11 +12,19 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
+/*
+An nginx connection can transparently encapsulate the SSL layer. In this case the connection's ssl field holds a pointer to an ngx_ssl_connection_t structure, keeping all SSL-related data for the connection, including SSL_CTX and SSL. The recv, send, recv_chain, and send_chain handlers are set to SSL-enabled functions as well.
+
+The worker_connections directive in the nginx configuration limits the number of connections per nginx worker. All connection structures are precreated when a worker starts and stored in the connections field of the cycle object. To retrieve a connection structure, use the ngx_get_connection(s, log) function. It takes as its s argument a socket descriptor, which needs to be wrapped in a connection structure.
+
+Because the number of connections per worker is limited, nginx provides a way to grab connections that are currently in use. To enable or disable reuse of a connection, call the ngx_reusable_connection(c, reusable) function. Calling ngx_reusable_connection(c, 1) sets the reuse flag in the connection structure and inserts the connection into the reusable_connections_queue of the cycle. Whenever ngx_get_connection() finds out there are no available connections in the cycle's free_connections list, it calls ngx_drain_connections() to release a specific number of reusable connections. For each such connection, the close flag is set and its read handler is called which is supposed to free the connection by calling ngx_close_connection(c) and make it available for reuse. To exit the state when a connection can be reused ngx_reusable_connection(c, 0) is called. HTTP client connections are an example of reusable connections in nginx; they are marked as reusable until the first request byte is received from the client.
+
+*/
 
 typedef struct ngx_listening_s  ngx_listening_t;
 
 struct ngx_listening_s {
-    ngx_socket_t        fd;
+    ngx_socket_t        fd;     
 
     struct sockaddr    *sockaddr;
     socklen_t           socklen;    /* size of sockaddr */
@@ -119,13 +127,15 @@ typedef enum {
 
 
 struct ngx_connection_s {
-    void               *data;
-    ngx_event_t        *read;
+
+    // // Arbitrary connection context. Normally, it is a pointer to a higher-level object built on top of the connection, such as an HTTP request or a Stream session
+    void               *data;   
+    ngx_event_t        *read;   // Read and write events for the connection
     ngx_event_t        *write;
 
-    ngx_socket_t        fd;
+    ngx_socket_t        fd;     // Socket descriptor
 
-    ngx_recv_pt         recv;
+    ngx_recv_pt         recv;   //  I/O operations for the connection.
     ngx_send_pt         send;
     ngx_recv_chain_pt   recv_chain;
     ngx_send_chain_pt   send_chain;
@@ -134,24 +144,26 @@ struct ngx_connection_s {
 
     off_t               sent;
 
-    ngx_log_t          *log;
+    ngx_log_t          *log;    // Connection log
 
-    ngx_pool_t         *pool;
+    ngx_pool_t         *pool;   // Connection pool
 
     int                 type;
 
-    struct sockaddr    *sockaddr;
+    struct sockaddr    *sockaddr;   // Remote socket address in binary and text forms
     socklen_t           socklen;
     ngx_str_t           addr_text;
 
+    // PROXY protocol client address and port, if the PROXY protocol is enabled for the connection
     ngx_str_t           proxy_protocol_addr;
     in_port_t           proxy_protocol_port;
 
 #if (NGX_SSL || NGX_COMPAT)
-    ngx_ssl_connection_t  *ssl;
+    ngx_ssl_connection_t  *ssl;     // SSL context for the connection
 #endif
 
-    struct sockaddr    *local_sockaddr;
+    // Local socket address in binary form. Initially, these fields are empty. Use the ngx_connection_local_sockaddr() function to get the local socket address.
+    struct sockaddr    *local_sockaddr;     
     socklen_t           local_socklen;
 
     ngx_buf_t          *buffer;
@@ -171,8 +183,8 @@ struct ngx_connection_s {
     unsigned            destroyed:1;
 
     unsigned            idle:1;
-    unsigned            reusable:1;
-    unsigned            close:1;
+    unsigned            reusable:1;     // Flag indicating the connection is in a state that makes it eligible for reuse
+    unsigned            close:1;        // Flag indicating that the connection is being reused and needs to be closed
     unsigned            shared:1;
 
     unsigned            sendfile:1;

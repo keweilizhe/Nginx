@@ -28,9 +28,9 @@ typedef struct {
 
 
 struct ngx_event_s {
-    void            *data;
+    void            *data;  //Arbitrary event context used in event handlers, usually as pointer to a connection related to the event
 
-    unsigned         write:1;
+    unsigned         write:1;   // Flag indicating a write event. Absence of the flag indicates a read event
 
     unsigned         accept:1;
 
@@ -41,32 +41,32 @@ struct ngx_event_s {
      * the event was passed or would be passed to a kernel;
      * in aio mode - operation was posted.
      */
-    unsigned         active:1;
+    unsigned         active:1;  // Flag indicating that the event is registered for receiving I/O notifications, normally from notification mechanisms like epoll, kqueue, poll.
 
     unsigned         disabled:1;
 
     /* the ready event; in aio mode 0 means that no operation can be posted */
-    unsigned         ready:1;
+    unsigned         ready:1;   // Flag indicating that the event has received an I/O notification
 
     unsigned         oneshot:1;
 
     /* aio operation is complete */
     unsigned         complete:1;
 
-    unsigned         eof:1;
-    unsigned         error:1;
+    unsigned         eof:1;     // Flag indicating that EOF occurred while reading data
+    unsigned         error:1;   // Flag indicating that an error occurred during reading (for a read event) or writing (for a write event).
 
-    unsigned         timedout:1;
-    unsigned         timer_set:1;
+    unsigned         timedout:1;    // Flag indicating that the event timer has expired
+    unsigned         timer_set:1;   // Flag indicating that the event timer is set and not yet expired
 
-    unsigned         delayed:1;
+    unsigned         delayed:1; // Flag indicating that I/O is delayed due to rate limiting
 
     unsigned         deferred_accept:1;
 
     /* the pending eof reported by kqueue, epoll or in aio chain operation */
-    unsigned         pending_eof:1;
+    unsigned         pending_eof:1; // Flag indicating that EOF is pending on the socket, even though there may be some data available before it. The flag is delivered via the EPOLLRDHUP epoll event or EV_EOF kqueue flag
 
-    unsigned         posted:1;
+    unsigned         posted:1;  // Flag indicating that the event is posted to a queue
 
     unsigned         closed:1;
 
@@ -74,7 +74,7 @@ struct ngx_event_s {
     unsigned         channel:1;
     unsigned         resolver:1;
 
-    unsigned         cancelable:1;
+    unsigned         cancelable:1;  // Timer event flag indicating that the event should be ignored while shutting down the worker. Graceful worker shutdown is delayed until there are no non-cancelable timer events scheduled.
 
 #if (NGX_HAVE_KQUEUE)
     unsigned         kq_vnode:1;
@@ -107,7 +107,7 @@ struct ngx_event_s {
     unsigned         available:1;
 #endif
 
-    ngx_event_handler_pt  handler;
+    ngx_event_handler_pt  handler;  // Callback function to be invoked when the event happens
 
 
 #if (NGX_HAVE_IOCP)
@@ -118,10 +118,10 @@ struct ngx_event_s {
 
     ngx_log_t       *log;
 
-    ngx_rbtree_node_t   timer;
+    ngx_rbtree_node_t   timer;  // Red-black tree node for inserting the event into the timer tree
 
     /* the posted queue */
-    ngx_queue_t      queue;
+    ngx_queue_t      queue;     // Queue node for posting the event to a queue
 
 #if 0
 
